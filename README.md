@@ -12,7 +12,7 @@ Esta é uma aplicação desenvolvida em Django para monitorar o estado do fluxo 
 
 1.  **Clone o repositório e acesse a pasta do projeto:**
     ```bash
-    git clone <seu-repositorio>
+    git clone https://github.com/enzzoalle/app-interdisciplinar-3-semestre
     cd app-interdisciplinar-3-semestre
     ```
 
