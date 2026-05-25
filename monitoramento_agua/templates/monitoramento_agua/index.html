@@ -1,0 +1,97 @@
+{% extends "monitoramento_agua/base.html" %}
+
+{% block title %}Logs - Monitoramento de Água{% endblock %}
+
+{% block content %}
+  <section style="margin-bottom: 28px;">
+    <h2 style="margin: 0 0 8px;">Intervalos sem água (0 → 1)</h2>
+
+    {% if intervalos_sem_agua %}
+      <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%;">
+        <thead>
+          <tr>
+            <th>Início</th>
+            <th>Fim</th>
+            <th>Duração</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for i in intervalos_sem_agua %}
+            <tr>
+              <td>{{ i.inicio }}</td>
+              <td>{% if i.fim %}{{ i.fim }}{% else %}<strong>Em aberto</strong>{% endif %}</td>
+              
+              {% if not i.fim %}
+                <td id="contador-aberto" data-inicio="{{ i.inicio|date:'c' }}">
+                  {{ i.duracao }}
+                </td>
+              {% else %}
+                <td>{{ i.duracao }}</td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>Nenhum intervalo de falta de água encontrado ainda.</p>
+    {% endif %}
+  </section>
+
+  <section>
+    <h2 style="margin: 0 0 8px;">Registros (mais recentes primeiro)</h2>
+
+    {% if registros %}
+      <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%;">
+        <thead>
+          <tr>
+            <th>Estado</th>
+            <th>Data/Hora</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in registros %}
+            <tr>
+              <td>{{ r.get_estadoDoFluxo_display }}</td>
+              <td>{{ r.dataEHoraDoRegistro }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>Nenhum registro ainda.</p>
+    {% endif %}
+  </section>
+
+  <script>
+    const contador = document.getElementById('contador-aberto');
+    
+    if (contador) {
+      // Pega a data exata em que a água caiu
+      const dataInicio = new Date(contador.getAttribute('data-inicio'));
+      
+      setInterval(() => {
+        const agora = new Date();
+        // Calcula a diferença em segundos
+        const diff = Math.floor((agora - dataInicio) / 1000);
+        
+        if (diff >= 0) {
+          const dias = Math.floor(diff / 86400);
+          const horas = Math.floor((diff % 86400) / 3600);
+          const minutos = Math.floor((diff % 3600) / 60);
+          const segundos = diff % 60;
+          
+          const hrStr = horas.toString();
+          const minStr = minutos.toString().padStart(2, '0');
+          const segStr = segundos.toString().padStart(2, '0');
+          
+          // Replica exatamente o formato que o timedelta do Python usaria na tabela
+          if (dias > 0) {
+            contador.innerText = `${dias} days, ${hrStr}:${minStr}:${segStr}`;
+          } else {
+            contador.innerText = `${hrStr}:${minStr}:${segStr}`;
+          }
+        }
+      }, 1000);
+    }
+  </script>
+{% endblock %}
