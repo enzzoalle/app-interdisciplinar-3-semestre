@@ -1,97 +1,186 @@
 {% extends "monitoramento_agua/base.html" %}
 
-{% block title %}Logs - Monitoramento de Água{% endblock %}
+{% block title %}Dashboard - Monitoramento de Água{% endblock %}
 
 {% block content %}
-  <section style="margin-bottom: 28px;">
-    <h2 style="margin: 0 0 8px;">Intervalos sem água (0 → 1)</h2>
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Histórico de Faltas de Água</h5>
+                <span class="badge bg-light text-primary">Preço: R$ {{ config.preco_metro_cubico }}/m³</span>
+            </div>
+            <div class="card-body p-0">
+                {% if intervalos_sem_agua %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Início</th>
+                                <th>Fim</th>
+                                <th>Duração</th>
+                                <th>Economia Estimada</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for i in intervalos_sem_agua %}
+                            <tr>
+                                <td>{{ i.inicio|date:"d/m/Y H:i:s" }}</td>
+                                <td>
+                                    {% if i.fim %}
+                                        {{ i.fim|date:"d/m/Y H:i:s" }}
+                                    {% else %}
+                                        <span class="badge bg-danger">Em andamento</span>
+                                    {% endif %}
+                                </td>
+                                
+                                {% if not i.fim %}
+                                    <td id="contador-aberto" class="fw-bold text-danger" data-inicio="{{ i.inicio|date:'c' }}">
+                                        {{ i.duracao }}
+                                    </td>
+                                    <td id="economia-aberta" class="fw-bold text-success" data-custo-segundo="{{ i.custo_por_segundo|stringformat:'f' }}">
+                                        R$ {{ i.economia|floatformat:2 }}
+                                    </td>
+                                {% else %}
+                                    <td>{{ i.duracao }}</td>
+                                    <td class="text-success fw-bold">R$ {{ i.economia|floatformat:2 }}</td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="p-4 text-center text-muted">
+                    Nenhum intervalo de falta de água registrado ainda.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
 
-    {% if intervalos_sem_agua %}
-      <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%;">
-        <thead>
-          <tr>
-            <th>Início</th>
-            <th>Fim</th>
-            <th>Duração</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for i in intervalos_sem_agua %}
-            <tr>
-              <td>{{ i.inicio }}</td>
-              <td>{% if i.fim %}{{ i.fim }}{% else %}<strong>Em aberto</strong>{% endif %}</td>
-              
-              {% if not i.fim %}
-                <td id="contador-aberto" data-inicio="{{ i.inicio|date:'c' }}">
-                  {{ i.duracao }}
-                </td>
-              {% else %}
-                <td>{{ i.duracao }}</td>
-              {% endif %}
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    {% else %}
-      <p>Nenhum intervalo de falta de água encontrado ainda.</p>
-    {% endif %}
-  </section>
+    <div class="col-lg-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">Logs Brutos (Recentes)</h5>
+            </div>
+            <div class="card-body p-0" style="max-height: 400px; overflow-y: auto;">
+                {% if registros %}
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th>Estado</th>
+                            <th>Data/Hora</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-logs">
+                        {% for r in registros %}
+                        <tr>
+                            <td>
+                                {% if r.estadoDoFluxo == 1 %}
+                                    <span class="badge bg-success">Com Água</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Sem Água</span>
+                                {% endif %}
+                            </td>
+                            <td class="small">{{ r.dataEHoraDoRegistro|date:"d/m/Y H:i" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="p-3 text-center text-muted small">Nenhum registro no momento.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
-  <section>
-    <h2 style="margin: 0 0 8px;">Registros (mais recentes primeiro)</h2>
-
-    {% if registros %}
-      <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%;">
-        <thead>
-          <tr>
-            <th>Estado</th>
-            <th>Data/Hora</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in registros %}
-            <tr>
-              <td>{{ r.get_estadoDoFluxo_display }}</td>
-              <td>{{ r.dataEHoraDoRegistro }}</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    {% else %}
-      <p>Nenhum registro ainda.</p>
-    {% endif %}
-  </section>
-
-  <script>
+{% block scripts %}
+<script>
     const contador = document.getElementById('contador-aberto');
+    const tdEconomia = document.getElementById('economia-aberta');
     
-    if (contador) {
-      // Pega a data exata em que a água caiu
-      const dataInicio = new Date(contador.getAttribute('data-inicio'));
-      
-      setInterval(() => {
-        const agora = new Date();
-        // Calcula a diferença em segundos
-        const diff = Math.floor((agora - dataInicio) / 1000);
+    if (contador && tdEconomia) {
+        const dataInicio = new Date(contador.getAttribute('data-inicio'));
+        const custoPorSegundo = parseFloat(tdEconomia.getAttribute('data-custo-segundo').replace(',', '.'));
         
-        if (diff >= 0) {
-          const dias = Math.floor(diff / 86400);
-          const horas = Math.floor((diff % 86400) / 3600);
-          const minutos = Math.floor((diff % 3600) / 60);
-          const segundos = diff % 60;
-          
-          const hrStr = horas.toString();
-          const minStr = minutos.toString().padStart(2, '0');
-          const segStr = segundos.toString().padStart(2, '0');
-          
-          // Replica exatamente o formato que o timedelta do Python usaria na tabela
-          if (dias > 0) {
-            contador.innerText = `${dias} days, ${hrStr}:${minStr}:${segStr}`;
-          } else {
-            contador.innerText = `${hrStr}:${minStr}:${segStr}`;
-          }
-        }
-      }, 1000);
+        setInterval(() => {
+            const agora = new Date();
+            const diffSegundosTotais = (agora - dataInicio) / 1000;
+            
+            if (diffSegundosTotais >= 0) {
+                const dias = Math.floor(diffSegundosTotais / 86400);
+                const horas = Math.floor((diffSegundosTotais % 86400) / 3600);
+                const minutos = Math.floor((diffSegundosTotais % 3600) / 60);
+                const segundos = Math.floor(diffSegundosTotais % 60);
+                
+                const hrStr = horas.toString();
+                const minStr = minutos.toString().padStart(2, '0');
+                const segStr = segundos.toString().padStart(2, '0');
+                
+                if (dias > 0) {
+                    contador.innerText = `${dias} days, ${hrStr}:${minStr}:${segStr}`;
+                } else {
+                    contador.innerText = `${hrStr}:${minStr}:${segStr}`;
+                }
+
+                const economiaAtual = (diffSegundosTotais * custoPorSegundo);
+                tdEconomia.innerText = `R$ ${economiaAtual.toFixed(2).replace('.', ',')}`;
+            }
+        }, 1000);
     }
-  </script>
+</script>
+
+<script>
+    setInterval(async () => {
+        try {
+            const req = await fetch('{% url "monitoramento_agua:api_registros" %}?limit=15', {
+                method: 'GET',
+                headers: {
+                    'X-API-KEY': '{{ api_key }}'
+                }
+            });
+            
+            if (!req.ok) return;
+            
+            const res = await req.json();
+            const tbody = document.getElementById('tbody-logs');
+            
+            if (tbody && res.results) {
+                tbody.innerHTML = '';
+                
+                res.results.forEach(registro => {
+                    const tr = document.createElement('tr');
+                    
+                    const tdBadge = document.createElement('td');
+                    if (registro.estadoDoFluxo === 1) {
+                        tdBadge.innerHTML = '<span class="badge bg-success">Com Água</span>';
+                    } else {
+                        tdBadge.innerHTML = '<span class="badge bg-danger">Sem Água</span>';
+                    }
+                        
+                    const tdData = document.createElement('td');
+                    tdData.className = 'small';
+                    
+                    const dataObj = new Date(registro.dataEHoraDoRegistro);
+                    const dia = String(dataObj.getDate()).padStart(2, '0');
+                    const mes = String(dataObj.getMonth() + 1).padStart(2, '0');
+                    const ano = dataObj.getFullYear();
+                    const horas = String(dataObj.getHours()).padStart(2, '0');
+                    const minutos = String(dataObj.getMinutes()).padStart(2, '0');
+                    
+                    tdData.innerText = `${dia}/${mes}/${ano} ${horas}:${minutos}`;
+                    
+                    tr.appendChild(tdBadge);
+                    tr.appendChild(tdData);
+                    tbody.appendChild(tr);
+                });
+            }
+        } catch(erro) {
+            console.error("Erro ao buscar novos logs", erro);
+        }
+    }, 3000);
+</script>
 {% endblock %}
